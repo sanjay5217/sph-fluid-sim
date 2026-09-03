@@ -67,3 +67,22 @@ vcpkg_installed/
 # test output & cache
 Testing/
 .cache/
+
+# macOS
+.DS_Store
+
+# Xcode
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+*.xccheckout
+*.moved-aside
+*.hmap
+*.ipa
+*.xcarchive
+DerivedData/
+.swiftpm/
+*.dSYM
+*.dSYM.zip
+timeline.xctimeline
+playground.xcworkspace/
