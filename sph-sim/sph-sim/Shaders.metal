@@ -8,8 +8,7 @@ struct VertexOut {
     float pointSize [[point_size]];
 };
 
-vertex VertexOut particleVertex(uint instanceID [[instance_id]],
-                                 constant Particle *particles [[buffer(0)]]) {
+vertex VertexOut particleVertex(uint instanceID [[instance_id]], constant Particle *particles [[buffer(0)]]) {
     VertexOut out;
     float2 pos = particles[instanceID].position;
     out.position = float4(pos, 0.0, 1.0);
@@ -19,4 +18,11 @@ vertex VertexOut particleVertex(uint instanceID [[instance_id]],
 
 fragment float4 particleFragment() {
     return float4(0.2, 0.6, 1.0, 1.0);
+}
+
+kernel void updateParticlePosition(
+            device Particle *particles [[buffer(0)]],
+            const constant SimulationParams& params [[buffer(1)]],
+            uint id [[thread_position_in_grid]]) {
+    particles[id].position += particles[id].velocity * params.dt;
 }
