@@ -1,10 +1,3 @@
-//
-//  GameViewController.m
-//  sph-sim
-//
-//  Created by Sanjay Ram on 2026-09-03.
-//
-
 #import "GameViewController.h"
 #import "Renderer.h"
 

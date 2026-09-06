@@ -7,9 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		C826A6FCE48478DCB74F2134 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 30877432D1026706D7E805DA /* Cocoa.framework */; };
-		5D2CCE8038A39D5E0853964B /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 846A32C3BB81E3C29B621792 /* Metal.framework */; };
 		50AF03B971722F244F58D669 /* MetalKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 73C8EB5BB682575EC87A171A /* MetalKit.framework */; };
+		5D2CCE8038A39D5E0853964B /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 846A32C3BB81E3C29B621792 /* Metal.framework */; };
+		C826A6FCE48478DCB74F2134 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 30877432D1026706D7E805DA /* Cocoa.framework */; };
+		1A2B3C4D5E6F708192A3B4C5 /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 846A32C3BB81E3C29B621792 /* Metal.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -30,12 +31,12 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		30877432D1026706D7E805DA /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = System/Library/Frameworks/Cocoa.framework; sourceTree = SDKROOT; };
+		73C8EB5BB682575EC87A171A /* MetalKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MetalKit.framework; path = System/Library/Frameworks/MetalKit.framework; sourceTree = SDKROOT; };
+		846A32C3BB81E3C29B621792 /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
 		DA7EAE733049C854009656D2 /* sph-sim.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "sph-sim.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		DA7EAE8E3049C855009656D2 /* sph-simTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "sph-simTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		DA7EAE983049C855009656D2 /* sph-simUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "sph-simUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
-		30877432D1026706D7E805DA /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = System/Library/Frameworks/Cocoa.framework; sourceTree = SDKROOT; };
-		846A32C3BB81E3C29B621792 /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
-		73C8EB5BB682575EC87A171A /* MetalKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MetalKit.framework; path = System/Library/Frameworks/MetalKit.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -71,6 +72,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1A2B3C4D5E6F708192A3B4C5 /* Metal.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -84,6 +86,16 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		CBEE3772A077021721A278F6 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				30877432D1026706D7E805DA /* Cocoa.framework */,
+				846A32C3BB81E3C29B621792 /* Metal.framework */,
+				73C8EB5BB682575EC87A171A /* MetalKit.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		DA7EAE6A3049C854009656D2 = {
 			isa = PBXGroup;
 			children = (
@@ -103,16 +115,6 @@
 				DA7EAE983049C855009656D2 /* sph-simUITests.xctest */,
 			);
 			name = Products;
-			sourceTree = "<group>";
-		};
-		CBEE3772A077021721A278F6 /* Frameworks */ = {
-			isa = PBXGroup;
-			children = (
-				30877432D1026706D7E805DA /* Cocoa.framework */,
-				846A32C3BB81E3C29B621792 /* Metal.framework */,
-				73C8EB5BB682575EC87A171A /* MetalKit.framework */,
-			);
-			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
