@@ -18,7 +18,7 @@ Before implementing SPH, I built the particle simulation incrementally to unders
 
 I started with the simplest physical behavior - a particle moving at a constant velocity. Velocity has both speed and magnitude, and the position ($\mathbf{x}$) is updated as per the formula below:
 
-    $$\mathbf{x}_{new} = \mathbf{x}_{old} + \mathbf{v}t$$
+$$\mathbf{x}_{new} = \mathbf{x}_{old} + \mathbf{v}t$$
 
 Letting $t = 1$, our compute kernel was simply the following:
 
@@ -75,7 +75,9 @@ $$p_i = \sum_j m_j W(|x_i - x_j|, h)$$
 
 This function is a weighting function responsible for calculating the level of influence nearby particles have on particle $i$. Take this diagram for example,
 
-![alt text](images/density1.png)
+<p align="center">
+  <img src="./images/density.svg" width="200">
+</p>
 
 Visually, we see that $r_a < r_b < r_c$ and since particle $a$ is closest to $i$, it will have more influence, thus $W_a > W_b > W_c$.
 
