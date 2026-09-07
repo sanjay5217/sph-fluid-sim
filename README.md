@@ -63,9 +63,9 @@ Now we move on to fluid dynamics, which include both Density and Pressure.
 
 In an SPH, density is a measure of how much particle mass is packed around a particle. The equation is the following:
 
-$$p_i = \sum_j m_j W(|x_i - x_j|, h)$$
+$$\rho_i = \sum_j m_j W(|x_i - x_j|, h)$$
 
-*   $p_i$ is the density of particle $i$
+*   $\rho_i$ is the density of particle $i$
 *   $m_j$ is the mass of particle $i$
 *   $W$ is the SPH kernel function (different kernel to a GPU kernel)
 *   $h$ is the smoothing radius
@@ -81,21 +81,84 @@ This function is a weighting function responsible for calculating the level of i
 
 Visually, we see that $r_a < r_b < r_c$ and since particle $a$ is closest to $i$, it will have more influence, thus $W_a > W_b > W_c$.
 
-For the initial simulation, I chose the poly6 kernel function which is the following:
+For the initial simulation, I chose the poly6 2-D normalized kernel function which is the following:
 
-$$W_{\text{poly6}}(r, h) = \frac{315}{64 \pi h^9}(h^2 - r^2)^3$$
+$$W_{\text{poly6}}(r, h) = \frac{4}{\pi h^8}(h^2 - r^2)^3$$
  
-The naive brute force I did was check all $n$ particles for each particle and add the density if $r < h$. This makes each operation per thread $O(n)$, so despite a $O(n^2)$ algorithm, we have an $O(n)$ due to GPU parallelization. However, we will optimize this algorithm later using a spatial hash grid. 
+The naive brute force I did was check all $n$ particles for each particle and add the density if $r < h$. This makes each operation per thread $O(n)$, so despite a $O(n^2)$ algorithm, we have $O(n)$ due to GPU parallelization. However, we will optimize this algorithm later using a spatial hash grid. 
+
+**Smoothing radius $h$**
+
+The $h$ value in our density equation is our smoothing radius. This determines whether a particle is close enough to another to actually influence their positon. When we calculate the radius of 2 particles, $r = |x_i - x_j|$, we check if $r < h$ and proceed, and if not we don't account for that particle. 
+
+
+<p align="center">
+  <img src="./images/density2.svg" width="200">
+</p>
+
+In the diagram, $r_a, r_b < h$ and $r_c > h$. Thus we only account for particle $a$ and $b$ in our density calculation. 
+
+In our previous density calculation, the value of $h$ was constant, however this isn't adaptive enough. A smoothing radius should be dependent on the number of neighbors.
 
 ### Pressure 
 
+Density tells us how compressed the fluid is locally relative to its rest density. But to enact the force caused by that, we need to calculate pressure. 
+
+To do this, we must use an **Equation of State**, to convert our density to pressure. In this SPH, we use the following formula:
+
+$$p_i = \max (0, k(\rho_i - \rho_0))$$
+
+*   $p_i$ is the pressure from particle $i$
+*   $\rho_i$ is the current density
+*   $\rho_0$ is the desired density
+
+Notice we apply bound $p_i$ by 0. This is because a negative pressure causes attraction, which we dont want. 
+
+Given the pressure, we must calculate the force enacted from that pressure. To ensure that the pressure forces between two particles obey Newton's Third Law, we require $F_{ij} + F_{ji} = 0$. Hence we arrive at a formula of the following:
+
+$$\mathbf{a}_{\text{pressure-induced}} = -\sum_j m_j \Big(\frac{p_i}{\rho_i^2} + \frac{p_j}{\rho_j^2}\Big) \nabla \mathbf{W}$$
+
+And by Newtons Second Law, $\mathbf{F} = m\mathbf{a}$ gives us 
+
+$$\mathbf{F}_{pressure} = m_i \cdot \mathbf{a}_{\text{pressure-induced}}$$
+
+Notice that we are using the gradient of the kernel function. Instead of poly6, we will use the Spikey Kernel.
+
+$$\mathbf{W}_{\text{spiky}}(r, h) = \frac{10}{\pi h^5}(h - r)^3$$
+
+$$\nabla \mathbf{W}(\mathbf{r}, h) = - \frac{30}{\pi h^5}(h - r)^2 \frac{\mathbf{r}}{r}, \quad \mathbf{r} = \frac{|\mathbf{x}_i - \mathbf{x}_j|}{\mathbf{x}_i - \mathbf{x}_j}$$
 
 
+For our 3 particle diagram from above, the free body demonstrates the force of pressure enacted on the particles. Notice that since particle $c$ is not within the smoothing radius, it will have no influence.
+
+<p align="center">
+  <img src="./images/pressurefb.svg" width="200">
+</p>
+
+### Viscosity
+ 
+Add later
+
+## Symmetrical Forces 
 
 
+## Implementation Details 
+
+### Simulation Algorithm 
+
+Our SPH simulation will follow the following algorithm.
+
+<p align="center">
+  <img src="./images/algorithm.svg" width="200">
+</p>
+
+### Substeps 
+
+Add Later..
 
 
+## References
 
+Majority, if not all, of the physics and optimizations of this SPH simulation was based on this paper.
 
-
-
+Li, M., Li, H., Meng, W. et al. An efficient non-iterative smoothed particle hydrodynamics fluid simulation method with variable smoothing length. Vis. Comput. Ind. Biomed. Art 6, 1 (2023). https://doi.org/10.1186/s42492-022-00128-x
