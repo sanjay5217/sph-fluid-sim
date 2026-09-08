@@ -2,8 +2,6 @@
 
 ## Table of Contents
 
-## Table of Contents
-
 - [Overview](#overview)
 - [What is SPH?](#what-is-sph)
 - [Particle Physics](#particle-physics)
