@@ -269,7 +269,7 @@ The retrieval step is simple:
 ```C++
 hash_grid[offset[cell]:offset[cell+1]] = particles
 ```
-$$\text{hash\_grid[offset[cell]:offset[cell+1]] = list of particles in cell}$$
+$$\text{hashgrid[offset[cell]:offset[cell+1]] = list of particles in cell}$$
 
 In our example, we can retrieve the particles we want to search.
 
