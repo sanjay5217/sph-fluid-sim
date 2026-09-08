@@ -7,12 +7,11 @@ static const NSUInteger kThreadsPerThreadgroup = 32;
 static const float kParticleMass = 1.0f;
 static const float kFixedGravityConstant = -9.81f;
 static const NSUInteger kMaxParticleCount = 10000;
-static const NSUInteger kDefaultParticleCount = 1200;
+static const NSUInteger kDefaultParticleCount = 2400;
 static const float kDefaultPressureStiffness = 200.0f;
 static const float kDefaultViscosity = 20.0f;
-
-static const float kRestDensity = 500.0f;
-static const float kSmoothingRadius = 0.125f;
+static const float kRestDensity = 1000.0f;
+static const float kSmoothingRadius = 0.09f;
 
 static const float kMinSmoothingRadiusFactor = 0.7f;
 static const float kMaxSmoothingRadiusFactor = 1.5f;
@@ -21,6 +20,8 @@ static const float kFrameDuration = 1.0f / 60.0f;
 static const NSUInteger kMinSubsteps = 4;
 static const NSUInteger kMaxSubsteps = 40;
 static const float kCFLSafetyFactor = 0.5f;
+
+static const NSUInteger kMaxGridCells = 4096;
 
 
 static const MTLClearColor kClearColor = {0.05, 0.05, 0.08, 1.0};
@@ -36,6 +37,15 @@ static const MTLClearColor kClearColor = {0.05, 0.05, 0.08, 1.0};
     id <MTLComputePipelineState> _smoothingPipelineState;
     id <MTLComputePipelineState> _gravityPipelineState;
     id <MTLComputePipelineState> _pressurePipelineState;
+    id <MTLComputePipelineState> _clearGridPipelineState;
+    id <MTLComputePipelineState> _countGridPipelineState;
+    id <MTLComputePipelineState> _prefixSumPipelineState;
+    id <MTLComputePipelineState> _scatterGridPipelineState;
+
+    id <MTLBuffer> _cellCountsBuffer;
+    id <MTLBuffer> _cellStartsBuffer;
+    id <MTLBuffer> _cellCursorBuffer;
+    id <MTLBuffer> _sortedIndicesBuffer;
 
     SimulationParams _params;
     NSUInteger _substepsPerFrame;
@@ -82,6 +92,10 @@ static const MTLClearColor kClearColor = {0.05, 0.05, 0.08, 1.0};
     _params.wallBand = spacing;
     _params.wallStiffness = (impactSpeed * impactSpeed) / (2.0f * spacing * spacing);
     _params.wallDamping = 2.0f * sqrtf(_params.wallStiffness);
+    _params.cellSize = _params.maxSmoothingRadius;
+    _params.gridWidth = (uint)ceilf(kContainerWidth / _params.cellSize);
+    _params.gridHeight = (uint)ceilf(kContainerHeight / _params.cellSize);
+    _params.cellCount = _params.gridWidth * _params.gridHeight;
 
     [self updatePointSize];
 }
@@ -93,6 +107,10 @@ static const MTLClearColor kClearColor = {0.05, 0.05, 0.08, 1.0};
 - (void)buildBuffers {
     _paramsBuffer = [_device newBufferWithLength:sizeof(SimulationParams) options:MTLResourceStorageModeShared];
     _particleBuffer = [_device newBufferWithLength:sizeof(Particle) * kMaxParticleCount options:MTLResourceStorageModeShared];
+    _cellCountsBuffer = [_device newBufferWithLength:sizeof(uint) * kMaxGridCells options:MTLResourceStorageModePrivate];
+    _cellStartsBuffer = [_device newBufferWithLength:sizeof(uint) * (kMaxGridCells + 1) options:MTLResourceStorageModePrivate];
+    _cellCursorBuffer = [_device newBufferWithLength:sizeof(uint) * kMaxGridCells options:MTLResourceStorageModePrivate];
+    _sortedIndicesBuffer = [_device newBufferWithLength:sizeof(uint) * kMaxParticleCount options:MTLResourceStorageModePrivate];
     [self respawnParticles];
 }
 
@@ -124,6 +142,10 @@ static const MTLClearColor kClearColor = {0.05, 0.05, 0.08, 1.0};
     id <MTLFunction> smoothingFunction = [library newFunctionWithName:@"updateSmoothingRadius"];
     id <MTLFunction> gravityFunction = [library newFunctionWithName:@"applyGravity"];
     id <MTLFunction> pressureFunction = [library newFunctionWithName:@"applyPressureAndViscosity"];
+    id <MTLFunction> clearGridFunction = [library newFunctionWithName:@"clearGridCounts"];
+    id <MTLFunction> countGridFunction = [library newFunctionWithName:@"countGridCells"];
+    id <MTLFunction> prefixSumFunction = [library newFunctionWithName:@"prefixSumGridCells"];
+    id <MTLFunction> scatterGridFunction = [library newFunctionWithName:@"scatterGridParticles"];
 
     MTLRenderPipelineDescriptor *pipelineDescriptor = [[MTLRenderPipelineDescriptor alloc] init];
     pipelineDescriptor.label = @"ParticlePipeline";
@@ -145,6 +167,10 @@ static const MTLClearColor kClearColor = {0.05, 0.05, 0.08, 1.0};
     _smoothingPipelineState = [_device newComputePipelineStateWithFunction:smoothingFunction error:&error];
     _gravityPipelineState = [_device newComputePipelineStateWithFunction:gravityFunction error:&error];
     _pressurePipelineState = [_device newComputePipelineStateWithFunction:pressureFunction error:&error];
+    _clearGridPipelineState = [_device newComputePipelineStateWithFunction:clearGridFunction error:&error];
+    _countGridPipelineState = [_device newComputePipelineStateWithFunction:countGridFunction error:&error];
+    _prefixSumPipelineState = [_device newComputePipelineStateWithFunction:prefixSumFunction error:&error];
+    _scatterGridPipelineState = [_device newComputePipelineStateWithFunction:scatterGridFunction error:&error];
     if (!_renderPipelineState) {
         NSLog(@"Failed to create particle pipeline state: %@", error);
     }
@@ -167,6 +193,11 @@ static const MTLClearColor kClearColor = {0.05, 0.05, 0.08, 1.0};
 
     if (!_pressurePipelineState) {
         NSLog(@"Failed to create pressure pipeline state: %@", error);
+    }
+
+    if (!_clearGridPipelineState || !_countGridPipelineState ||
+        !_prefixSumPipelineState || !_scatterGridPipelineState) {
+        NSLog(@"Failed to create spatial grid pipeline states: %@", error);
     }
 }
 
@@ -234,13 +265,32 @@ static const MTLClearColor kClearColor = {0.05, 0.05, 0.08, 1.0};
         id<MTLComputeCommandEncoder> computeEncoder = [commandBuffer computeCommandEncoder];
         [computeEncoder setBuffer:_particleBuffer offset:0 atIndex:0];
         [computeEncoder setBuffer:_paramsBuffer offset:0 atIndex:1];
+        [computeEncoder setBuffer:_cellCountsBuffer offset:0 atIndex:2];
+        [computeEncoder setBuffer:_cellStartsBuffer offset:0 atIndex:3];
+        [computeEncoder setBuffer:_cellCursorBuffer offset:0 atIndex:4];
+        [computeEncoder setBuffer:_sortedIndicesBuffer offset:0 atIndex:5];
         MTLSize gridSize = MTLSizeMake(_params.particleCount, 1, 1);
         MTLSize threadgroupSize = MTLSizeMake(kThreadsPerThreadgroup, 1, 1);
+        MTLSize cellGridSize = MTLSizeMake(_params.cellCount, 1, 1);
+        MTLSize singleThread = MTLSizeMake(1, 1, 1);
 
         for (NSUInteger step = 0; step < _substepsPerFrame; step++) {
 
             // Smoothing radius
             [computeEncoder setComputePipelineState:_smoothingPipelineState];
+            [computeEncoder dispatchThreads:gridSize threadsPerThreadgroup:threadgroupSize];
+
+            // Neighbor search
+            [computeEncoder setComputePipelineState:_clearGridPipelineState];
+            [computeEncoder dispatchThreads:cellGridSize threadsPerThreadgroup:threadgroupSize];
+
+            [computeEncoder setComputePipelineState:_countGridPipelineState];
+            [computeEncoder dispatchThreads:gridSize threadsPerThreadgroup:threadgroupSize];
+
+            [computeEncoder setComputePipelineState:_prefixSumPipelineState];
+            [computeEncoder dispatchThreads:singleThread threadsPerThreadgroup:singleThread];
+
+            [computeEncoder setComputePipelineState:_scatterGridPipelineState];
             [computeEncoder dispatchThreads:gridSize threadsPerThreadgroup:threadgroupSize];
 
             // Density

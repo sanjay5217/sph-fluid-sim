@@ -3,8 +3,8 @@
 
 #include <simd/simd.h>
 
-#define kContainerWidth      2.0f
-#define kContainerHeight     2.0f
+#define kContainerWidth      4.0f
+#define kContainerHeight     4.0f
 #define kContainerHalfWidth  (kContainerWidth * 0.5f)
 #define kContainerHalfHeight (kContainerHeight * 0.5f)
 
@@ -28,6 +28,12 @@ typedef struct {
     float wallDamping;
 
     float pointSize;
+
+    // Spatial grid
+    float cellSize;
+    uint gridWidth;
+    uint gridHeight;
+    uint cellCount;
 
     uint particleCount;
 } SimulationParams;

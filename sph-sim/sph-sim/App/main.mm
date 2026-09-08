@@ -1,10 +1,3 @@
-//
-//  main.m
-//  sph-sim
-//
-//  Created by Sanjay Ram on 2026-09-03.
-//
-
 #import <Cocoa/Cocoa.h>
 
 int main(int argc, const char * argv[]) {

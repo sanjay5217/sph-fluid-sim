@@ -66,7 +66,7 @@ typedef NS_ENUM(NSInteger, SettingTag) {
 
     [stack addArrangedSubview:[self rowWithTitle:@"Particles"
                                              tag:SettingTagParticleCount
-                                        minValue:200 maxValue:1800
+                                        minValue:500 maxValue:10000
                                            value:_renderer.particleCount]];
     [stack addArrangedSubview:[self rowWithTitle:@"Stiffness k"
                                              tag:SettingTagPressureStiffness

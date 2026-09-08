@@ -139,7 +139,7 @@ For our 3 particle diagram from above, the free body demonstrates the force of p
  
 Add later
 
-## Symmetrical Forces 
+### Symmetrical Forces 
 
 
 ## Implementation Details 
@@ -156,6 +156,133 @@ Our SPH simulation will follow the following algorithm.
 
 Add Later..
 
+### Spatial Hash Grid
+
+This is probably the biggest optimization made in the simulation. When doing our neighbor search to identify particles with influence, we looped through every particle to check that. 
+
+```
+for every particle near particle x
+    calculate the distance between particle n and particle x
+    check if distance < smoothing length
+    if so, then update the pressure force accordingly, otherwise repeat
+```
+
+A simple naive implementation, but hugely costly. For a singular particle, we have $O(n-1)$ checks, thus making this algorithm $O(n^2)$, or $O(n)$ from the GPU. However a lot of these checks are quite unessecary since we are checking particles very far away from the current. 
+
+The **spatial hash grid** is a solution to mitigate unessecary checks and only checks particles that *could* be within the smoothing length distance. Take not of the following image:
+
+
+<p align="center">
+  <img src="./images/hashgrid1.svg" width="500">
+</p>
+
+Basically, we split the window into grids and assign a particle to one grid. For this example, we will choose a domain of $2 \times 2$ grid for a specific particle. 
+
+<p align="center">
+  <img src="./images/hashgrid2.svg" width="500">
+</p>
+
+Notice that outer circle represents the smoothing radius of our target particle. The particles (determined by their center) tells us which particles to actually check for our neighbor search. 
+
+<p align="center">
+  <img src="./images/hashgrid3.svg" width="500">
+</p>
+
+Checking all of them, we see only 1 particle is within the smoothing radius. But the main advantage is how much of the search space we eliminated. 
+
+### Implementation of a Hash Grid 
+
+Consider the labelled particles:
+
+<p align="center">
+  <img src="./images/hashgrid4.svg" width="500">
+</p>
+
+Each particle has a $(x, y)$ coordinate position. To make sure a particle stricly falls in a grid, we floor each part. Thus the cell is simply $(\lfloor x \rfloor, \lfloor y \rfloor)$.
+
+| Particle | (x, y)       | Cell   |
+| -------- | ------------ | ------ |
+| 1        | (0.70, 2.45) | (0, 2) |
+| 2        | (1.25, 2.50) | (1, 2) |
+| 3        | (0.70, 0.45) | (0, 0) |
+| 4        | (1.45, 0.85) | (1, 0) |
+| 5        | (2.20, 1.85) | (2, 1) |
+| 6        | (3.10, 1.50) | (3, 1) |
+| 7        | (2.65, 0.35) | (2, 0) |
+| 8        | (4.00, 1.15) | (4, 1) |
+| 9        | (4.20, 2.55) | (4, 2) |
+| 10       | (4.50, 0.55) | (4, 0) |
+
+*Note: The example has the coordinate system working upwards, so block 1 would be considered bottom left*
+
+Now we linearize this to be a 1D data structure. To do this is quite simple. 
+
+$$\text{cell}' = \text{grid width} \cdot \text{cell y-coordinate} + \text{cell x-coordinate}$$
+
+In our example, the grid width is 5. Applying this formula gets us 
+
+| Particle | Cell' | 
+| -------- | ------
+| 1        | 10    | 
+| 2        | 11    | 
+| 3        | 0     | 
+| 4        | 1     | 
+| 5        | 7     | 
+| 6        | 8     | 
+| 7        | 2     |  
+| 8        | 9     | 
+| 9        | 14    | 
+| 10       | 4     | 
+
+Now for each cell, we count the number of particles in each cell. Using the index to represent the cell ids (index + 1), we get the following array constructed in $O(n)$ time:
+
+```C++
+particle_count = [1, 1, 1, 0, 1, 0, 0, 1, 1, 1, 1, 1, 0, 0, 1]
+```
+
+Now we want to sort the array in terms of its cell position. For example, if we had particle 1 and 2 at cell 3 and 4 respectively, but particle 3 at cell 0, then the array we want is [3, 1, 2].
+
+For our example, we get the sorted array:
+
+```C++
+hash_grid = [3, 4, 7, 10, 5, 6, 8, 1, 2, 9]
+```
+
+Notice that each cell's offset is the sum of all the number of particles before it. Thus we construct a prefix sum from ```particle_count```. Specifically, we start with the running total before each sell, starting with 0. 
+
+```C++
+offset = [0, 1, 2, 3, 3, 4, 4, 4, 5, 6, 7, 8, 9, 9, 9, 10]
+```
+
+We repeat when there are no particles in that cell
+
+Now lets say we wanted to check the neighbors of particle 6, 
+
+<p align="center">
+  <img src="./images/hashgrid6.svg" width="500">
+</p>
+
+Given that particle 6 is in cell 8, and since we are checking a domain fo $2 \times 2$, we check cell 2, 3, 7, and 8. 
+
+The retrieval step is simple:
+
+```C++
+hash_grid[offset[cell]:offset[cell+1]] = particles
+```
+$$\text{hash\_grid[offset[cell]:offset[cell+1]] = list of particles in cell}$$
+
+In our example, we can retrieve the particles we want to search.
+
+| Cell | offset[c] | offset[c+1] | Slice | Particles |
+|------|-----------|-------------|-------|-----------|
+| 2    | 2         | 3           | `hash_grid[2:3]` | `[7]` |
+| 3    | 3         | 3           | `hash_grid[3:3]` | `[]` |
+| 4    | 4         | 5           | `hash_grid[4:5]` | `[5]` |
+| 5    | 5         | 6           | `hash_grid[5:6]` | `[6]` |
+
+Notice we search 7 and 5 (we don't count the particle 6 itself), and successfully eliminate the rest. 
+
+This approach is gives us $O(1)$ access to the list of particles in that specific cell with $O(n)$ space, while reducing the search space significant (2 searches compared to 10 in our example).
 
 ## References
 
