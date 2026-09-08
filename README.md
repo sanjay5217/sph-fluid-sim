@@ -1,5 +1,28 @@
 # Smoothed Particle Hydrodynamics (SPH) fluid simulation
 
+## Table of Contents
+
+## Table of Contents
+
+- [Overview](#overview)
+- [What is SPH?](#what-is-sph)
+- [Particle Physics](#particle-physics)
+  - [Constant Velocity](#constant-velocity)
+  - [Time Steps](#time-steps)
+  - [Gravity](#gravity)
+  - [Density](#density)
+  - [Pressure](#pressure)
+  - [Viscosity](#viscosity)
+  - [Symmetrical Forces](#symmetrical-forces)
+- [Implementation Details](#implementation-details)
+  - [Simulation Algorithm](#simulation-algorithm)
+  - [Substeps](#substeps)
+  - [Spatial Hash Grid](#spatial-hash-grid)
+  - [Implementation of a Hash Grid](#implementation-of-a-hash-grid)
+- [Benchmarking](#benchmarking)
+- [References](#references)
+
+## Overview 
 This project explores GPU programming and parallel computing through the implementation of a real-time two-dimensional Smoothed Particle Hydrodynamics (SPH) fluid simulation. Rather than relying on an existing physics or simulation framework, the goal is to understand how a particle-based simulation can be designed and executed on the GPU using C++ and Apple's Metal API.
 
 ### Why Metal? 
@@ -200,6 +223,8 @@ Consider the labelled particles:
 
 Each particle has a $(x, y)$ coordinate position. To make sure a particle stricly falls in a grid, we floor each part. Thus the cell is simply $(\lfloor x \rfloor, \lfloor y \rfloor)$.
 
+<div align="center">
+
 | Particle | (x, y)       | Cell   |
 | -------- | ------------ | ------ |
 | 1        | (0.70, 2.45) | (0, 2) |
@@ -213,6 +238,8 @@ Each particle has a $(x, y)$ coordinate position. To make sure a particle stricl
 | 9        | (4.20, 2.55) | (4, 2) |
 | 10       | (4.50, 0.55) | (4, 0) |
 
+</div>
+
 *Note: The example has the coordinate system working upwards, so block 1 would be considered bottom left*
 
 Now we linearize this to be a 1D data structure. To do this is quite simple. 
@@ -220,6 +247,8 @@ Now we linearize this to be a 1D data structure. To do this is quite simple.
 $$\text{cell}' = \text{grid width} \cdot \text{cell y-coordinate} + \text{cell x-coordinate}$$
 
 In our example, the grid width is 5. Applying this formula gets us 
+
+<div align="center">
 
 | Particle | Cell' | 
 | -------- | ------
@@ -233,6 +262,8 @@ In our example, the grid width is 5. Applying this formula gets us
 | 8        | 9     | 
 | 9        | 14    | 
 | 10       | 4     | 
+
+</div>
 
 Now for each cell, we count the number of particles in each cell. Using the index to represent the cell ids (index + 1), we get the following array constructed in $O(n)$ time:
 
@@ -273,6 +304,8 @@ $$\text{hashgrid[offset[cell]:offset[cell+1]] = list of particles in cell}$$
 
 In our example, we can retrieve the particles we want to search.
 
+<div align="center">
+
 | Cell | offset[c] | offset[c+1] | Slice | Particles |
 |------|-----------|-------------|-------|-----------|
 | 2    | 2         | 3           | `hash_grid[2:3]` | `[7]` |
@@ -280,9 +313,16 @@ In our example, we can retrieve the particles we want to search.
 | 4    | 4         | 5           | `hash_grid[4:5]` | `[5]` |
 | 5    | 5         | 6           | `hash_grid[5:6]` | `[6]` |
 
+</div>
+
 Notice we search 7 and 5 (we don't count the particle 6 itself), and successfully eliminate the rest. 
 
 This approach is gives us $O(1)$ access to the list of particles in that specific cell with $O(n)$ space, while reducing the search space significant (2 searches compared to 10 in our example).
+
+## Benchmarking 
+
+In progress...
+
 
 ## References
 
